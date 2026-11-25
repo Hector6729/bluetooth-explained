@@ -1,0 +1,243 @@
+<!doctype html>
+<!--
+  ======================================================================
+  index.html : THE SKELETON OF THE "BLUETOOTH UNVEILED" WEBSITE
+  ======================================================================
+
+  WHAT THIS FILE IS FOR
+  This is the first file the browser opens. It lists every box that
+  appears on screen (the 3D area, the top bar, the two glass panels, the
+  hint, the welcome card and the summary card). It does NOT decide how
+  they look (that is style.css) or what they do (that is the JavaScript
+  in the js/ folder). Think of it as: HTML = nouns, CSS = adjectives,
+  JS = verbs.
+
+  KEY HTML IDEAS (for someone who has never written HTML)
+  * An ELEMENT is a tag pair like <p> ... </p>. The text or other
+    elements between the tags are its CONTENT. Some elements, like
+    <meta> or <input>, have no closing tag.
+  * An ATTRIBUTE is extra info written inside the opening tag, like
+    href="style.css" or type="range".
+  * id="something" gives ONE element a unique name. JavaScript finds it
+    with document.getElementById('something').
+  * class="a b c" gives an element one or more reusable labels. CSS uses
+    classes to style many elements at once (".glass" in style.css means
+    "every element with class glass"). JS also adds and removes classes
+    at run time to switch looks on and off.
+  * <head> holds settings the visitor does not see (page title, fonts,
+    stylesheet, script setup). <body> holds everything that is shown.
+  * aria-label / aria-expanded are ACCESSIBILITY attributes. Screen
+    readers (software that reads the page aloud for blind users) say
+    these words, e.g. a button that only shows a "-" sign is announced
+    as "Shrink this panel".
+  * The hidden attribute removes an element from the page until JS
+    turns it off.
+
+  HOW THIS FILE CONNECTS TO THE OTHER FILES
+  * style.css (linked in <head>) styles every class and id used here.
+  * js/main.js (loaded at the very bottom) is the "boss" script. It:
+      fills #step-title, #step-answer, #step-try,
+      #step-detail, #facts and #step-count with each step's words;
+      wires up #back, #next, #step-slider, #start, #summary-close,
+      #summary-again; toggles the classes .collapsed (shrink a panel),
+      .panels-hidden on <body> (H key), .gone (fade out welcome or
+      summary) and .step-change (fade-in animation); and switches the
+      hidden attribute on #summary.
+  * js/scene.js puts the Three.js 3D canvas inside #stage.
+  * js/drag.js makes every .floating panel, the .topbar, the .hint and
+    the .welcome-card draggable. It adds the classes .draggable and
+    .dragging, and sets CSS variables (dx, dy, sx, sy, tilt) on them.
+  * js/ui.js and js/steps/1-waves.js ... 6-break-it.js fill #controls
+    with sliders, switches and number boxes for the current step.
+
+  SCRIPTS: IMPORT MAP AND MODULES
+  * Modern JavaScript can be split into many files that "import" each
+    other (ES MODULES). <script type="module"> turns that on.
+  * The code says import * as THREE from 'three'. The browser does not
+    know where 'three' lives, so the <script type="importmap"> in <head>
+    is a little dictionary: "the name three means this web address".
+    Three.js is downloaded from a CDN (Content Delivery Network: a fast
+    public server that hosts popular libraries), so there is no install
+    or build step.
+  * Fonts come from Google Fonts for the same reason: one link and the
+    font works on every computer, even ones that never installed it.
+  ======================================================================
+-->
+<!-- <html> wraps the whole page. lang="en" tells browsers and screen readers the page is in English. -->
+<html lang="en">
+<!-- <head>: invisible settings for the page. -->
+<head>
+  <!-- Use the UTF-8 character set so emoji and curly quotes display correctly. -->
+  <meta charset="utf-8">
+  <!-- Make phones use their real screen width instead of pretending to be a zoomed-out desktop. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The text shown on the browser tab. -->
+  <title>How Bluetooth Works</title>
+  <!-- "preconnect" opens a connection to Google's font servers early, so the font arrives faster. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- Same for the server that holds the actual font files. "crossorigin" is needed because fonts are fetched from another website. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Load the "Plus Jakarta Sans" font in weights 400 to 700. display=swap shows a fallback font until it loads, so text is never invisible. -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Our own stylesheet: all colours, layout and the liquid-glass look. -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Tell the browser where to find the Three.js 3D library -->
+  <!--
+    IMPORT MAP explained: the block below is pure JSON (so no comments are
+    allowed inside it). "imports" maps short names to web addresses:
+      "three" is the main Three.js file, version 0.160.0, from the jsDelivr CDN.
+      "three/addons/" is a folder of extras (like the mouse camera controls);
+      any import that starts with three/addons/ is looked up in that folder.
+    Pinning the exact version means the site will not break if Three.js changes later.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+<!-- End of the invisible settings. -->
+</head>
+<!-- <body>: everything the visitor actually sees. -->
+<body>
+  <!-- Soft coloured blobs behind everything -->
+  <!-- Three empty boxes. CSS makes them big, round, blurry and coloured, so the glass has something colourful to blur. -->
+  <div class="blob blob-purple"></div>
+  <div class="blob blob-teal"></div>
+  <div class="blob blob-pink"></div>
+
+  <!-- The 3D world fills the screen. The glass panels float on top of it. -->
+  <!-- #stage starts empty; js/scene.js inserts a <canvas> (a drawing surface) here and Three.js draws the 3D scene into it. -->
+  <div id="stage"></div>
+
+  <!-- Top bar: title + a slider to scrub through the steps -->
+  <!-- <header> is a page heading area. "glass" gives the liquid-glass look, "topbar" places it at the top centre. -->
+  <header class="glass topbar">
+    <!-- <h1> is the most important heading on the page. -->
+    <h1>How Bluetooth Works</h1>
+    <!-- A slider (type="range"). max starts at 0; main.js sets it to (number of steps minus 1) and moves the knob when the step changes. aria-label names it for screen readers. -->
+    <input id="step-slider" class="step-slider" type="range" min="0" max="0" value="0" aria-label="Choose a step">
+    <!-- A small pill showing "Step X of 6". main.js rewrites this text. -->
+    <span class="chip" id="step-count">Step 1</span>
+    <!-- Mute / unmute all music and sound effects (main.js + sound.js). -->
+    <button class="chip mute-btn" id="mute" aria-label="Mute">🔊</button>
+  </header>
+
+  <!-- Explanation panel (drag it by its handle, shrink it with the button) -->
+  <!-- <aside> means "side content". "panel" = rounded padded box, "floating" = sits on top of the 3D at a fixed spot and can be dragged (drag.js) and shrunk (main.js adds .collapsed). -->
+  <aside id="info-panel" class="glass panel floating">
+    <!-- The handle bar across the top of the panel. title="Drag me" shows a tooltip when you hover. -->
+    <div class="handle" title="Drag me">
+      <!-- Panel name: hidden normally, only shown by CSS when the panel is shrunk (.collapsed). <b> = bold text. -->
+      <b class="panel-name">📖 Explanation</b>
+      <!-- The little grey bar that hints "you can grab this". -->
+      <span class="grip"></span>
+      <!-- Shrink/grow button. main.js swaps its text between the dash and +, and updates aria-expanded (true = open) and aria-label so screen readers know the state. -->
+      <button class="collapse-btn" aria-label="Shrink this panel" aria-expanded="true">–</button>
+    </div>
+    <!-- The panel's content. Hidden by CSS when shrunk. main.js adds .step-change here to replay a fade-in each step. -->
+    <div class="panel-body" id="info-body">
+      <!-- Step title (a level-2 heading), filled in by main.js. -->
+      <h2 id="step-title"></h2>
+      <!-- The one-line short answer to the step's question, filled in by main.js. -->
+      <p id="step-answer" class="answer"></p>
+      <!-- A "Try this" suggestion box. The <span> inside gets the step's suggestion text. -->
+      <p class="try"><b>Try this:</b> <span id="step-try"></span></p>
+      <!-- <details> is a built-in fold-out box: closed by default, click the <summary> line to open it. No JS needed. -->
+      <details class="more">
+        <!-- The always-visible clickable line of the fold-out. -->
+        <summary>More detail</summary>
+        <!-- Extra detail text, filled in by main.js. -->
+        <p id="step-detail"></p>
+        <!-- main.js puts small "label: value" fact pills in here. -->
+        <div class="facts" id="facts"></div>
+      </details>
+      <!-- <nav> = navigation area. Holds the Back / Next buttons. -->
+      <nav class="buttons">
+        <!-- Go to the previous step. main.js disables it on step 1. -->
+        <button id="back" class="pill pill-secondary">← Back</button>
+        <!-- Go to the next step. On the last step main.js changes its text to "Finish" and it opens the summary. -->
+        <button id="next" class="pill pill-primary">Next →</button>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Controls panel: each step puts its own sliders and readouts here -->
+  <!-- Same panel structure as above, placed on the right side by CSS. -->
+  <aside id="controls-panel" class="glass panel floating">
+    <!-- Draggable handle bar, same as the explanation panel. -->
+    <div class="handle" title="Drag me">
+      <!-- Name shown only when shrunk. -->
+      <b class="panel-name">🎛️ Play with it</b>
+      <!-- Grab hint bar. -->
+      <span class="grip"></span>
+      <!-- Shrink/grow button (handled by main.js). -->
+      <button class="collapse-btn" aria-label="Shrink this panel" aria-expanded="true">–</button>
+    </div>
+    <!-- The panel content, hidden when shrunk. -->
+    <div class="panel-body">
+      <!-- A small level-3 heading. -->
+      <h3>Play with it</h3>
+      <!-- Empty on purpose: each step file (js/steps/...) uses helpers from ui.js to build sliders, switches and number boxes in here. main.js empties it when the step changes. -->
+      <div id="controls"></div>
+    </div>
+  </aside>
+
+  <!-- The hint bubble at the bottom centre. It is glass and draggable too. CSS hides it on smaller screens. -->
+  <div class="glass hint" id="hint">Drag to spin · <b>H</b> hides panels</div>
+
+  <!-- Welcome screen (shown once when the page opens) -->
+  <!-- A see-through layer covering the whole screen. When you press Start, main.js adds .gone (fade out) and then deletes it from the page. -->
+  <div id="welcome" class="welcome">
+    <!-- The glass card in the middle of the welcome layer (draggable too). -->
+    <div class="glass welcome-card">
+      <!-- Big emoji row: phone, waves, headphones. -->
+      <div class="welcome-icons">📱 〰️ 🎧</div>
+      <!-- Welcome title. -->
+      <h1>How Bluetooth Works</h1>
+      <!-- Short intro sentence. -->
+      <p>Phone to headphones, through thin air. 🎵 Sound on!</p>
+      <!-- Wrapper that stacks the buttons. -->
+      <div class="welcome-buttons">
+        <!-- Start button: main.js listens for clicks on #start to hide the welcome screen. -->
+        <button id="start" class="pill pill-primary">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary: shown when you press Finish on the last step -->
+  <!-- Reuses the welcome look. It starts with class "gone" (see-through) AND the hidden attribute (not on the page at all). main.js removes hidden, then on the next frame removes .gone so it fades in. -->
+  <div id="summary" class="welcome gone" hidden>
+    <!-- The glass card. -->
+    <div class="glass welcome-card">
+      <!-- Summary title. -->
+      <h1>That’s Bluetooth.</h1>
+      <!-- Intro line. -->
+      <!-- <ol> = ordered (numbered) list: one line per step. <b> makes the key words bold. -->
+      <ol class="recap-list">
+        <li><b>Radio waves</b> carry it.</li>
+        <li>It <b>hops channels</b> to dodge noise.</li>
+        <li>Gadgets <b>shout “I’m here!”</b></li>
+        <li><b>Pairing</b> makes a secret key.</li>
+        <li>Data flies as <b>1s and 0s</b>.</li>
+        <li>A <b>music backup</b> stops stutters.</li>
+      </ol>
+      <!-- Button stack. -->
+      <div class="welcome-buttons">
+        <!-- Closes the summary and leaves you on the last step. -->
+        <button id="summary-close" class="pill pill-primary">Keep playing</button>
+        <!-- Closes the summary and jumps back to step 1. "pill-ghost" = a clear glass button instead of a coloured one. -->
+        <button id="summary-again" class="pill pill-ghost">Start again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load the app. type="module" lets main.js use import (it imports scene.js, drag.js, ui.js, the steps and Three.js via the import map). Modules also wait until the HTML above is ready, so getElementById finds every element. It sits at the end of <body> for the same reason. -->
+  <script type="module" src="js/main.js"></script>
+<!-- End of the visible page. -->
+</body>
+<!-- End of the document. -->
+</html>

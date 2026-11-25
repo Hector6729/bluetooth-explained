@@ -1,0 +1,1256 @@
+/* ======================================================================
+   style.css : HOW EVERYTHING ON "BLUETOOTH UNVEILED" LOOKS
+   ======================================================================
+
+   WHAT THIS FILE IS FOR
+   index.html lists the boxes on the page; this file says how they look
+   and where they sit: colours, sizes, fonts, the liquid-glass effect,
+   animations and how the layout changes on laptops and phones. It never
+   changes what the page DOES; that is the JavaScript in js/.
+
+   HOW A CSS RULE WORKS
+     selector { property: value; property: value; }
+   The SELECTOR picks elements; each PROPERTY sets one visual feature.
+     .glass        every element with class="glass"
+     #stage        the one element with id="stage"
+     h1            every <h1> tag
+     .a .b         a .b that is somewhere INSIDE a .a
+     .a.b          one element that has BOTH classes
+     a, b          the same rule applied to both
+     :hover        while the mouse is over it (a "pseudo-class": a state)
+     ::after       an extra invisible box CSS can draw after the content
+                   (a "pseudo-element": no HTML needed)
+     :is(a, b, c)  shorthand for "any of these selectors"
+
+   THE CASCADE AND SPECIFICITY
+   When two rules set the same property on the same element, the more
+   SPECIFIC selector wins (an id beats a class, a class beats a tag, two
+   classes beat one). If they tie, the rule LATER in the file wins.
+   !important forces a value to win; it is used here only where the
+   phone layout must beat inline values set by JavaScript.
+
+   CUSTOM PROPERTIES (CSS VARIABLES)
+   --name: value defines a variable; var(--name) reads it. They live in
+   :root (the whole page) so one change restyles everything.
+   var(--x, 0px) means "use --x, or 0px if it is not set".
+
+   HOW THE LIQUID-GLASS EFFECT IS BUILT (the .glass rule)
+   1. backdrop-filter blurs and brightens whatever is BEHIND the box
+      (the 3D scene and the coloured blobs). This is the main trick.
+   2. The background is almost transparent, with a soft white shine.
+   3. Inset box-shadows draw thin bright lines along the inner edges,
+      like light catching the rim of real glass.
+   4. A faint white text-shadow keeps text crisp on the clear glass.
+
+   CONNECTIONS TO THE JAVASCRIPT
+   * drag.js adds .draggable to every glass piece, adds .dragging while
+     you pull it, adds .is-dragging to <body>, and writes the variables
+     --dx and --dy (how far it moved, in pixels), --sx and --sy
+     (stretch sideways and vertically) and --tilt (rotation) straight
+     onto the element. The transform rules below read those variables.
+   * main.js toggles .collapsed on a panel (shrink to a pill),
+     .panels-hidden on <body> (the H key), .gone on the welcome and
+     summary screens (fade out), .step-change (fade-in animation) and
+     the hidden attribute on #summary.
+   * ui.js sets --fill on sliders (how much of the track is coloured)
+     and builds .control, .toggle, .readout, .text-input elements.
+   * The step files in js/steps build the step-specific pieces
+     (.chips, .found-item, .bit-strip, .meter, .caption and so on).
+
+   RESPONSIVE LAYOUT (@media)
+   An @media block only applies when its condition is true.
+   * 861px to 1280px wide (laptops): slimmer panels, no hint bubble.
+   * 860px wide or less (phones, small tablets): everything stacks in
+     one column and dragging is turned off. drag.js and main.js use the
+     same 860px number so CSS and JS agree.
+   * prefers-reduced-motion: if the visitor's computer is set to reduce
+     motion, almost all animations finish instantly.
+   ====================================================================== */
+
+/* ---------- Colours (change these to restyle the whole site) ---------- */
+/* :root means the <html> element, the very top of the page. Variables defined here can be used everywhere. */
+:root {
+  /* Main text colour: a near-black with a hint of purple. */
+  --text: #1c1a24;
+  --muted: #48445a; /* darker than before so it stays readable on clear glass */
+  /* Liquid glass is mostly clear: just a whisper of white, plus lit edges. */
+  /* rgba(red, green, blue, alpha): alpha is see-through-ness, 0 = invisible, 1 = solid. 0.1 = 10% white. */
+  --glass: rgba(255, 255, 255, 0.1);
+  --glass-strong: rgba(255, 255, 255, 0.24); /* small pills and tiles inside panels */
+  /* The thin border colour around glass pieces. */
+  --glass-edge: rgba(255, 255, 255, 0.6);
+  --glow: 0 1px 2px rgba(255, 255, 255, 0.85); /* keeps text crisp on clear glass */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* overshoots a little, like liquid */
+  /* Brand colours, written as hex codes (#RRGGBB). */
+  --purple: #8b6cf6;
+  --purple-dark: #6d4ff0;
+  --teal: #3fbcb0;
+  --pink: #f6a5c8;
+  /* Green for "good" readings, red for "bad" ones (used by .good and .bad below). */
+  --good: #22b07d;
+  --bad: #e5484d;
+  /* A reusable soft drop shadow: x offset, y offset, blur size, colour. */
+  --shadow: 0 20px 50px rgba(60, 40, 110, 0.18);
+}
+
+/* * selects EVERY element. border-box means width and height include the padding and border, which makes sizes much easier to reason about. */
+* {
+  box-sizing: border-box;
+}
+
+/* The whole visible page. */
+body {
+  /* Remove the browser's default 8px gap around the page. */
+  margin: 0;
+  /* At least as tall as the window. 100vh = 100% of the viewport (window) height. */
+  min-height: 100vh;
+  /* Use our Google font; if it has not loaded, use the system font, then any sans-serif font. */
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* Default text colour, read from the variable above. */
+  color: var(--text);
+  /* A soft pink-to-lilac-to-blue diagonal (135 degrees) colour fade behind everything. */
+  background: linear-gradient(135deg, #f6eef0 0%, #e8e4f2 55%, #cfd3e4 100%);
+  /* No scrollbars on desktop: everything floats over a full-screen 3D view. */
+  overflow: hidden;
+}
+
+/* ---------- Background blobs ---------- */
+/* Shared look for the three blurry colour blobs. */
+.blob {
+  /* position: fixed pins an element to the window; it does not move when the page scrolls. top/left/right/bottom then place it. */
+  position: fixed;
+  /* 50% rounding turns a square into a circle. */
+  border-radius: 50%;
+  /* Blur the circle heavily so it becomes a soft glow. */
+  filter: blur(70px);
+  /* Half see-through. */
+  opacity: 0.5;
+  /* Mouse clicks pass straight through, so the blobs never block anything. */
+  pointer-events: none;
+}
+/* Each blob: its size, colour and where it sits (negative numbers push it partly off-screen). */
+.blob-purple { width: 420px; height: 420px; background: var(--purple); top: -100px; left: -120px; }
+.blob-teal   { width: 360px; height: 360px; background: #5fd0c5; bottom: -80px; right: -60px; }
+.blob-pink   { width: 280px; height: 280px; background: var(--pink); top: 40%; right: 30%; }
+
+/* ---------- The 3D world ---------- */
+/* The box that holds the Three.js canvas. */
+#stage {
+  /* Pinned to the window... */
+  position: fixed;
+  /* ...and stretched to all four edges (inset: 0 is short for top, right, bottom and left all 0). */
+  inset: 0;
+}
+/* The <canvas> that scene.js puts inside #stage. */
+#stage canvas {
+  /* Block instead of inline removes a tiny gap under the canvas. */
+  display: block;
+  /* Fill the whole stage. */
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* let us handle finger drags ourselves */
+}
+
+/* ---------- Liquid glass ----------
+   Real glass is almost invisible. You notice it because of:
+   1. what's behind it is softly blurred and a bit more colourful (backdrop-filter),
+   2. light catching its edges (the inset shadows: bright top-left, softer bottom-right),
+   3. a soft shine across the top (the radial gradient).
+   So the fill itself is barely there. */
+.glass {
+  /* Two backgrounds stacked (the first is on top): an oval white shine near the top-left,
+     and a faint diagonal white fade that ends in the nearly clear --glass colour. */
+  background:
+    radial-gradient(120% 70% at 15% 0%, rgba(255, 255, 255, 0.32), transparent 55%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14), var(--glass) 60%);
+  /* THE key effect: blur what is behind the box, make its colours richer (190%) and slightly brighter. */
+  backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
+  /* The same line with a "-webkit-" prefix, needed for Safari. */
+  -webkit-backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
+  /* A thin, half-white rim. */
+  border: 1px solid var(--glass-edge);
+  /* Four shadows. "inset" ones are drawn INSIDE the box:
+     a bright line on the top-left edge, a softer one on the bottom-right,
+     a faint inner glow all round; the last (not inset) is a soft drop shadow below. */
+  box-shadow:
+    inset 1.5px 1.5px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 22px rgba(255, 255, 255, 0.18),
+    0 14px 40px rgba(60, 40, 110, 0.12);
+  /* A tiny white glow under all text inside glass, for readability. */
+  text-shadow: var(--glow);
+}
+
+/* ---------- Draggable glass ----------
+   Every floating glass piece can be dragged (see drag.js).
+   drag.js sets --dx/--dy (how far it moved) and --sx/--sy/--tilt (the squish).
+   The spring curve makes it wobble back into shape when you let go. */
+/* drag.js adds .draggable to each glass piece it controls. */
+.draggable {
+  /* Show an open-hand mouse pointer. */
+  cursor: grab;
+  /* A TRANSITION animates a property smoothly when its value changes.
+     transform changes take 0.5s along the bouncy --spring curve; opacity changes take 0.25s. */
+  transition: transform 0.5s var(--spring), opacity 0.25s;
+  /* Hint to the browser that this will move a lot, so it can prepare (smoother animation). */
+  will-change: transform;
+}
+/* While being dragged (drag.js adds .dragging). */
+.draggable.dragging {
+  /* Closed-hand pointer. */
+  cursor: grabbing;
+  /* Follow the mouse quickly (0.12s) instead of the slow bouncy spring. */
+  transition: transform 0.12s ease-out;
+  /* z-index sets stacking order: higher numbers sit on top. 30 lifts the dragged piece above the other panels (10). */
+  z-index: 30;
+  /* Slightly brighter edges and a bigger drop shadow, so it looks "lifted". */
+  box-shadow:
+    inset 1.5px 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 30px rgba(255, 255, 255, 0.25),
+    0 24px 60px rgba(60, 40, 110, 0.2);
+}
+/* Panels and the welcome card. A TRANSFORM moves, rotates or resizes an element visually without changing the layout around it.
+   translate = shift by --dx/--dy; rotate = tilt by --tilt; scale = stretch by --sx/--sy.
+   The second value in each var() is the default when drag.js has not set it yet (no movement). */
+.floating.draggable,
+.welcome-card.draggable {
+  transform: translate(var(--dx, 0px), var(--dy, 0px)) rotate(var(--tilt, 0deg)) scale(var(--sx, 1), var(--sy, 1));
+}
+/* The top bar and hint are centred with left: 50% plus a shift of minus half their own width (-50%).
+   calc() does maths, so here we add the drag distance on top of that centring shift. */
+.topbar.draggable,
+.hint.draggable {
+  transform: translate(calc(-50% + var(--dx, 0px)), var(--dy, 0px)) rotate(var(--tilt, 0deg)) scale(var(--sx, 1), var(--sy, 1));
+}
+/* Buttons, sliders, switches and text inside glass keep their normal pointer */
+/* :is(...) matches any of the listed things inside a draggable piece. The pointer shows a pointing finger (clickable). */
+.draggable :is(button, input, [role='switch'], .toggle) {
+  cursor: pointer;
+}
+/* Text boxes inside glass show the text-typing cursor instead. */
+.draggable input[type='text'] {
+  cursor: text;
+}
+/* While anything is being dragged (drag.js puts .is-dragging on <body>), stop text from being highlighted by accident. */
+body.is-dragging {
+  user-select: none;
+  /* Safari version of the same line. */
+  -webkit-user-select: none;
+}
+
+/* ---------- Top bar ---------- */
+/* The glass pill across the top with the title, step slider and step chip. */
+.topbar {
+  /* Pinned to the window, 16px from the top. */
+  position: fixed;
+  top: 16px;
+  /* Its left edge starts at the middle of the screen; the transform above shifts it back by half its width, so it is centred. */
+  left: 50%;
+  /* min() picks the smaller: 720px wide, or the full width minus 32px on narrow screens. */
+  width: min(720px, calc(100% - 32px));
+  /* FLEXBOX: lays the children out in a row. align-items centres them vertically, gap puts 16px between them. */
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* Inner space: top, right, bottom, left (more on the left for the title). */
+  padding: 10px 12px 10px 22px;
+  /* A huge radius turns a rectangle into a pill shape. */
+  border-radius: 999px;
+  /* Sit above the 3D stage. */
+  z-index: 10;
+}
+
+/* Every <h1> (top bar title and welcome title). */
+h1 {
+  /* No default space around it. */
+  margin: 0;
+  /* Text size and boldness (700 = bold). */
+  font-size: 18px;
+  font-weight: 700;
+  /* Never wrap onto two lines. */
+  white-space: nowrap;
+}
+
+/* Small pill label, like "Step 1 of 6". */
+.chip {
+  /* Inner space: 6px top and bottom, 14px left and right. */
+  padding: 6px 14px;
+  /* Pill shape. */
+  border-radius: 999px;
+  /* Small semi-bold text that stays on one line. */
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  /* Purple text on a slightly whiter piece of glass with a light rim. */
+  color: var(--purple-dark);
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+}
+
+/* ---------- Floating panels ---------- */
+/* The two big glass panels. */
+.panel {
+  /* Rounded corners. */
+  border-radius: 28px;
+  /* Inner space: 8px top, 22px left and right, 22px bottom. */
+  padding: 8px 22px 22px;
+  /* Above the 3D stage. */
+  z-index: 10;
+}
+
+/* Panels that float on top of the 3D world. */
+.floating {
+  /* Pinned to the window. */
+  position: fixed;
+  /* Never taller than the window minus 120px (room for the top bar). */
+  max-height: calc(100vh - 120px);
+  /* If the content is taller, show a vertical scrollbar inside the panel. */
+  overflow-y: auto;
+}
+
+/* Explanation panel: 24px from the left, 96px from the top (below the top bar). */
+#info-panel {
+  left: 24px;
+  top: 96px;
+  width: 360px;
+}
+
+/* Controls panel: same height, on the right side. */
+#controls-panel {
+  right: 24px;
+  top: 96px;
+  width: 320px;
+}
+
+/* The bar at the top of a panel: grab it to move the panel,
+   or press the round button to shrink the panel down to just this bar. */
+.handle {
+  /* "relative" makes this the reference box for the absolutely-positioned collapse button inside it. */
+  position: relative;
+  /* Flexbox row; justify-content centres the grip horizontally, align-items centres vertically. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Always at least 34px tall, with a bit of inner space. */
+  min-height: 34px;
+  padding: 4px 0 8px;
+  /* Open-hand pointer. */
+  cursor: grab;
+  /* Stop touch screens scrolling the page when you drag the handle. */
+  touch-action: none;
+}
+/* The little grey "grab me" bar. */
+.grip {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(93, 89, 112, 0.35);
+}
+/* Closed-hand pointer on the handle while its panel is being dragged. */
+.dragging .handle {
+  cursor: grabbing;
+}
+
+/* The panel's name: hidden (display: none) unless the panel is shrunk. */
+.panel-name {
+  display: none;
+  font-size: 14px;
+}
+
+/* The round shrink/grow button. */
+.collapse-btn {
+  /* "absolute" places it relative to .handle: 8px past the right edge, 2px from the top. */
+  position: absolute;
+  right: -8px;
+  top: 2px;
+  /* A 30px circle. */
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  /* Glass rim and fill. */
+  border: 1px solid var(--glass-edge);
+  background: var(--glass-strong);
+  /* A small drop shadow plus a white line along the inside top edge. */
+  box-shadow: 0 4px 10px rgba(60, 40, 110, 0.15), inset 0 1px 0 #fff;
+  /* Buttons do not use the page font by default; "inherit" makes them copy it. */
+  font: inherit;
+  /* Size of the dash or + symbol, line-height 1 keeps it centred. */
+  font-size: 18px;
+  line-height: 1;
+  /* Grey symbol, pointing-finger cursor. */
+  color: var(--muted);
+  cursor: pointer;
+}
+/* Turn the symbol purple when the mouse is over it. */
+.collapse-btn:hover {
+  color: var(--purple-dark);
+}
+
+/* Shrunk panel: only the bar is left */
+/* main.js adds .collapsed when the shrink button is pressed. */
+.panel.collapsed {
+  /* Less space at the bottom. */
+  padding-bottom: 8px;
+  /* Force a narrow width (!important beats the normal width rules above). */
+  width: 220px !important;
+  /* Hide anything that sticks out. */
+  overflow: hidden;
+}
+/* Hide the contents. */
+.panel.collapsed .panel-body {
+  display: none;
+}
+/* Show the panel's name, pushed to the left (margin-right: auto eats all spare space on its right). */
+.panel.collapsed .panel-name {
+  display: block;
+  margin-right: auto;
+}
+/* Hide the grip bar. */
+.panel.collapsed .grip {
+  display: none;
+}
+
+/* H key: hide both panels completely */
+/* main.js toggles .panels-hidden on <body>. The panels fade out (opacity transition from .draggable) and stop catching clicks. */
+body.panels-hidden .floating {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Gentle fade when the step changes */
+/* main.js adds .step-change to the panel contents each time the step changes; this plays the "step-in" animation once over 0.45s. */
+.step-change {
+  animation: step-in 0.45s ease-out;
+}
+/* @keyframes defines a named animation: the start state ("from") and the end state ("to").
+   Here: start invisible and 6px lower, end fully visible in place. */
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Welcome screen ---------- */
+/* Full-screen layer used by both the welcome screen and the summary. */
+.welcome {
+  /* Covers the whole window. */
+  position: fixed;
+  inset: 0;
+  /* 50 puts it on top of everything else (panels are 10, a dragged piece is 30). */
+  z-index: 50;
+  /* GRID layout; place-items: center puts the card exactly in the middle, both ways. */
+  display: grid;
+  place-items: center;
+  /* Keep the card 16px away from the screen edges. */
+  padding: 16px;
+  /* A very faint pinkish tint with a slight blur of the page behind. */
+  background: rgba(239, 233, 238, 0.15);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  /* Fade in and out over 0.4s when opacity changes. */
+  transition: opacity 0.4s;
+}
+/* main.js adds .gone to fade the layer out; pointer-events: none lets clicks pass through while it fades. */
+.welcome.gone {
+  opacity: 0;
+  pointer-events: none;
+}
+/* The glass card in the middle. */
+.welcome-card {
+  /* 460px wide, or the full available width if the screen is smaller. */
+  width: min(460px, 100%);
+  /* Rounded corners and inner space (top, sides, bottom). */
+  border-radius: 32px;
+  padding: 32px 28px 28px;
+  /* Centre the text. */
+  text-align: center;
+}
+/* The big emoji row, with space between the emoji. */
+.welcome-icons {
+  font-size: 34px;
+  letter-spacing: 6px;
+}
+/* A bigger title inside the welcome card, with space above and below. */
+.welcome-card h1 {
+  font-size: 28px;
+  margin: 10px 0 8px;
+}
+/* Paragraphs in the card: space below, comfy line spacing, grey text. */
+.welcome-card p {
+  margin: 0 0 18px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+/* The list of tips. */
+.tips {
+  /* Remove bullets and the default indent. */
+  list-style: none;
+  padding: 0;
+  /* 24px of space below the list. */
+  margin: 0 0 24px;
+  /* Left-aligned text (the card itself is centred). */
+  text-align: left;
+  /* A one-column grid with 8px between items. */
+  display: grid;
+  gap: 8px;
+}
+/* Each tip: a glass pill with the emoji and text side by side. */
+.tips li {
+  /* Flexbox row, 10px between emoji and text, vertically centred. */
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  /* Inner space and pill shape. */
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  /* Glass fill and rim. */
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+}
+
+/* Every <h2> (the step title): small gap below, 20px text. */
+h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+/* Every <h3> ("Play with it" heading): grey, semi-bold. */
+h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* The main explanation paragraph. */
+#step-text {
+  /* No extra space around it. */
+  margin: 0;
+  /* Roomy line spacing (1.6 times the text size) for easy reading. */
+  line-height: 1.6;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* The row of fact pills under "More detail". */
+.facts {
+  /* Flexbox row that wraps onto new lines when it runs out of room. */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* One fact pill (main.js builds these). */
+.fact {
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+}
+
+/* The value part of a fact is purple. */
+.fact strong {
+  color: var(--purple-dark);
+}
+
+/* The hint bubble at the bottom. */
+.hint {
+  /* Pinned 20px from the bottom, starting at the middle (centred by the transform above). */
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  /* Pill shape with inner space. */
+  padding: 10px 18px;
+  border-radius: 999px;
+  /* Small grey text on one line. */
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  /* Above the 3D stage. */
+  z-index: 10;
+}
+
+/* ---------- Pill buttons ---------- */
+/* The Back/Next row: flexbox pushes the two buttons to opposite ends (space-between). */
+.buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+/* Base style for every rounded button. */
+.pill {
+  /* Use the page font, semi-bold, 15px. */
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  /* Inner space and pill shape. */
+  padding: 11px 22px;
+  border-radius: 999px;
+  /* A light rim. */
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  /* White text, without the glass text glow (it would look blurry on a coloured button). */
+  color: white;
+  text-shadow: none;
+  /* Pointing-finger cursor. */
+  cursor: pointer;
+  /* Animate the hover lift, press squish and disabled fade. */
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+/* Mouse over a button: lift it 1px. */
+.pill:hover {
+  transform: translateY(-1px);
+}
+
+/* While pressed: shrink it slightly. */
+.pill:active {
+  transform: scale(0.97);
+}
+
+/* A disabled button (e.g. Back on step 1): faded, normal cursor, no movement. */
+.pill:disabled {
+  opacity: 0.35;
+  cursor: default;
+  transform: none;
+}
+
+/* Purple button: a light-to-dark purple fade (top to bottom), a purple glow below and a white line on the inner top edge. */
+.pill-primary {
+  background: linear-gradient(180deg, #a48bff, var(--purple-dark));
+  box-shadow: 0 10px 24px rgba(109, 79, 240, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Teal button, built the same way. */
+.pill-secondary {
+  background: linear-gradient(180deg, #8ee3da, var(--teal));
+  box-shadow: 0 10px 24px rgba(63, 188, 176, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Clear glass button: dark text with the glass glow, glass fill. */
+.pill-ghost {
+  color: var(--text);
+  text-shadow: var(--glow);
+  background: var(--glass-strong);
+}
+
+/* Small glass pieces inside panels: clear, with a lit top-left edge */
+/* One shared shadow for all these small pieces: bright top-left inner line, faint bottom-right inner line, tiny drop shadow. */
+:is(.pill-ghost, .chip, .fact, .readout, .chips span, .tips li, .text-input, .collapse-btn, .bit-strip, .found-item) {
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.75), inset -1px -1px 0 rgba(255, 255, 255, 0.2), 0 4px 14px rgba(60, 40, 110, 0.08);
+}
+
+/* ---------- Sliders (glass track + glossy purple knob) ---------- */
+/* Every slider (<input type="range">). The square brackets select by attribute. */
+input[type='range'] {
+  /* Switch off the browser's built-in slider look so we can draw our own. */
+  -webkit-appearance: none;
+  appearance: none;
+  /* Full width, 10px tall, pill shaped track. */
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  /* Two-colour track: purple up to --fill (set by ui.js paintSlider), then clear white after it.
+     Two colour stops at the same spot make a hard edge instead of a fade. 50% is the default. */
+  background: linear-gradient(90deg, var(--purple) var(--fill, 50%), rgba(255, 255, 255, 0.35) var(--fill, 50%));
+  /* Glass rim, a slight inner shadow so the track looks sunk in, and a pointer cursor. */
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 3px rgba(60, 40, 110, 0.15);
+  cursor: pointer;
+}
+/* The knob in Chrome, Safari and Edge (::-webkit-slider-thumb is a pseudo-element for the knob). */
+input[type='range']::-webkit-slider-thumb {
+  /* Remove the default knob look. */
+  -webkit-appearance: none;
+  /* A 24px circle. */
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  /* A glossy pearl: white highlight near the top-left fading to light purple. */
+  background: radial-gradient(circle at 35% 30%, #fff, #e9e3ff 60%, #cbbcff);
+  /* White rim and a purple glow. */
+  border: 1px solid #fff;
+  box-shadow: 0 4px 12px rgba(109, 79, 240, 0.4);
+}
+/* The same knob for Firefox (each browser needs its own selector, and they cannot be combined). */
+input[type='range']::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #e9e3ff 60%, #cbbcff);
+  border: 1px solid #fff;
+  box-shadow: 0 4px 12px rgba(109, 79, 240, 0.4);
+}
+
+/* The step slider in the top bar. */
+.step-slider {
+  /* flex: 1 makes it take up all spare room in the top bar row. */
+  flex: 1;
+  /* But never narrower than 60px. */
+  min-width: 60px;
+}
+
+/* ---------- Controls made by ui.js ---------- */
+/* One slider block (label + slider + note). */
+.control {
+  margin-bottom: 16px;
+}
+
+/* The label row above a slider: name on the left, value on the right (space-between). */
+.control-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* The last span in the label (the current value) is purple. */
+.control-label span:last-child {
+  color: var(--purple-dark);
+}
+
+/* A small grey note under a slider. */
+.control-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* Toggle switch: a glass pill with a sliding knob */
+/* The whole switch row (label on the left, switch on the right). */
+.toggle {
+  /* Flexbox row, items at opposite ends, vertically centred. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* Label text style. */
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  /* Clickable, and double-clicking does not highlight the label. */
+  cursor: pointer;
+  user-select: none;
+}
+
+/* The switch track. */
+.switch {
+  /* "relative" so the knob (::after) can be placed inside it. */
+  position: relative;
+  /* flex: none stops flexbox from squashing it. */
+  flex: none;
+  /* A 52 by 30 pill. */
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  /* Clear glass with a sunk-in inner shadow. */
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 4px rgba(60, 40, 110, 0.18);
+  /* Fade the colour when switched on or off. */
+  transition: background 0.2s;
+}
+/* The knob, drawn with the ::after pseudo-element (no extra HTML needed). */
+.switch::after {
+  /* A pseudo-element only appears if it has "content"; an empty string is enough. */
+  content: '';
+  /* Placed 2px from the top-left inside the track. */
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  /* A 24px white circle with a soft shadow. */
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #eee);
+  box-shadow: 0 3px 8px rgba(60, 40, 110, 0.25);
+  /* Slide smoothly. */
+  transition: transform 0.2s;
+}
+/* When ui.js adds .on, the track turns purple... */
+.toggle.on .switch {
+  background: linear-gradient(180deg, #a48bff, var(--purple-dark));
+}
+/* ...and the knob slides 22px to the right. */
+.toggle.on .switch::after {
+  transform: translateX(22px);
+}
+
+/* Live numbers (distance, signal, etc.) */
+/* A grid of two equal columns (1fr 1fr: "one fraction of the space each"). */
+.readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+/* One number box: glass tile with rounded corners. */
+.readout {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+}
+
+/* The small label on its own line above the number. */
+.readout small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* The number itself. */
+.readout b {
+  font-size: 17px;
+}
+
+/* A wide box spans every column: from grid line 1 to the last line (-1). */
+.readout.wide {
+  grid-column: 1 / -1;
+}
+
+/* Colour words green or red; the step files add these classes to show good or bad values. */
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+
+/* Row of small channel chips (hop sequence) */
+/* A wrapping flexbox row of chips (step 2 builds them). */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+/* Each chip: a small bold glass pill. */
+.chips span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+}
+/* The first chip (the next channel) is solid purple with white text. */
+.chips span:first-child {
+  color: white;
+  background: linear-gradient(180deg, #a48bff, var(--purple-dark));
+}
+
+/* Text box, button rows and colour swatches (step 4) */
+/* The text box made by ui.js addTextInput. */
+.text-input {
+  /* Full width with inner space. */
+  width: 100%;
+  padding: 10px 14px;
+  /* Page font at 15px. */
+  font: inherit;
+  font-size: 15px;
+  /* Pill shaped glass with a sunk-in shadow. */
+  border-radius: 999px;
+  border: 1px solid var(--glass-edge);
+  background: var(--glass-strong);
+  box-shadow: inset 0 1px 3px rgba(60, 40, 110, 0.12);
+  /* Remove the browser's default focus outline (the purple border below replaces it). */
+  outline: none;
+}
+/* While you are typing in it (:focus), the rim turns purple. */
+.text-input:focus {
+  border-color: var(--purple);
+}
+
+/* A row of buttons side by side (ui.js). */
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+/* Buttons in that row share the width equally (flex: 1) and are a bit smaller. */
+.button-row .pill {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+/* A small coloured circle shown next to text (step 4 pairing colours). */
+.swatch {
+  /* inline-block lets it sit inside a line of text but still have a width and height. */
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  /* Nudge it down 3px so it lines up with the text. */
+  vertical-align: -3px;
+  margin-right: 6px;
+  /* White ring and a soft shadow. */
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(60, 40, 110, 0.25);
+}
+
+/* A tinted message box (steps 4 and 6). */
+.caption {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  /* A faint purple-to-teal diagonal tint. */
+  background: linear-gradient(135deg, rgba(164, 139, 255, 0.25), rgba(95, 208, 197, 0.2));
+  border: 1px solid var(--glass-edge);
+}
+
+/* Monospace (every letter the same width, like code) for keys and bits in steps 4 and 5. */
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+  /* Long strings with no spaces may break onto a new line anywhere. */
+  word-break: break-all;
+  font-weight: 500;
+}
+
+/* Music buffer meter and section headings (step 6) */
+/* The meter's empty track. */
+.meter {
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--glass-edge);
+  /* Clip the coloured bar to the rounded track. */
+  overflow: hidden;
+}
+/* The coloured fill bar (an <i> element); step 6 sets its width from JavaScript. */
+.meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  /* Teal-to-purple left to right. */
+  background: linear-gradient(90deg, var(--teal), var(--purple));
+  /* Smoothly grow and shrink. */
+  transition: width 0.15s;
+}
+/* When the buffer is low, step 6 adds .low and the bar turns red-orange as a warning. */
+.meter.low i {
+  background: linear-gradient(90deg, var(--bad), #f5a524);
+}
+
+/* A bold heading between sections of controls (step 6). */
+.section-title {
+  margin: 22px 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Packet legend and bit strip (step 5) */
+/* The colour key: a wrapping row (6px gap between lines, 12px between items), small grey text. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+/* Each little coloured square in the legend (its colour is set by JavaScript). */
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+/* The strip of 1s and 0s showing a packet arriving. */
+.bit-strip {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+  line-height: 1.6;
+  /* A little space between each digit. */
+  letter-spacing: 1px;
+}
+/* Each bit starts faint (not arrived yet) and fades in smoothly. */
+.bit-strip span {
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+/* Step 5 adds .arrived when a bit gets there: fully visible. */
+.bit-strip span.arrived {
+  opacity: 1;
+}
+/* A bit that got flipped by noise: red (forced with !important over any colour set elsewhere), pink highlight, crossed out. */
+.bit-strip span.flipped {
+  color: var(--bad) !important;
+  background: rgba(229, 72, 77, 0.15);
+  border-radius: 3px;
+  text-decoration: line-through;
+}
+
+/* "Nearby devices" list (step 3) */
+/* A vertical flexbox column (flex-direction: column) with 8px between items. */
+.found-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* One found device: icon, name and signal bars in a row on a glass tile. */
+.found-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+/* A newly found device pops in with the "pop-in" animation (defined below). */
+.found-item.new {
+  animation: pop-in 0.4s ease-out;
+}
+
+/* The device's emoji icon. */
+.found-item .icon {
+  font-size: 22px;
+}
+
+/* The device name takes all the spare width (flex: 1), pushing the bars to the right. */
+.found-item .name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Small grey sub-line under the name. */
+.found-item small {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Signal-strength bars, right-aligned. */
+.found-item .bars {
+  text-align: right;
+  font-size: 14px;
+}
+
+/* Message shown when no devices have been found yet. */
+.found-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 8px 2px;
+}
+
+/* Pop-in animation: start slightly small and invisible, end full size and visible. */
+@keyframes pop-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ---------- Plain-language step layout ---------- */
+/* The big one-line answer at the top of each step: large, bold, purple. */
+.answer {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--purple-dark);
+}
+/* The "Try this" box: rounded, with a faint teal-to-white tint. */
+.try {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.45;
+  background: linear-gradient(135deg, rgba(95, 208, 197, 0.22), rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--glass-edge);
+}
+/* The "More detail" fold-out. */
+.more {
+  margin-top: 12px;
+  font-size: 14px;
+}
+/* Its clickable title line. */
+.more summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 0;
+}
+/* Paragraphs inside the fold-out. */
+.more p {
+  margin: 8px 0 0;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* Welcome and summary buttons, summary list */
+/* Stack the buttons in a one-column grid, 10px apart. */
+.welcome-buttons {
+  display: grid;
+  gap: 10px;
+}
+/* Those buttons fill the card's width and are a bit larger. */
+.welcome-buttons .pill {
+  width: 100%;
+  font-size: 16px;
+  padding: 13px;
+}
+/* The numbered six-line recap: left-aligned, indented 22px so the numbers show, 8px between lines. */
+.recap-list {
+  text-align: left;
+  margin: 0 0 22px;
+  padding-left: 22px;
+  display: grid;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+/* ---------- Laptops: slimmer panels so the 3D world has more room ---------- */
+/* A MEDIA QUERY: these rules only apply when the window is between 861px and 1280px wide. */
+@media (max-width: 1280px) and (min-width: 861px) {
+  /* Narrower explanation panel, closer to the edge. */
+  #info-panel {
+    width: 290px;
+    left: 16px;
+  }
+  /* Narrower controls panel, closer to the edge. */
+  #controls-panel {
+    width: 280px;
+    right: 16px;
+  }
+  /* Less inner space in both panels. */
+  .panel {
+    padding: 6px 16px 16px;
+  }
+  /* Slightly smaller body text and step titles. */
+  #step-text {
+    font-size: 14px;
+  }
+  h2 {
+    font-size: 18px;
+  }
+  /* No room for the hint bubble. */
+  .hint {
+    display: none;
+  }
+}
+
+/* ---------- Phones and small screens: stack everything ---------- */
+/* These rules only apply when the window is 860px wide or less. */
+@media (max-width: 860px) {
+  /* Let the page scroll normally. */
+  body {
+    overflow: auto;
+  }
+  /* The 3D view becomes a normal box 60% of the screen tall instead of a full-screen background. */
+  #stage {
+    position: relative;
+    height: 60vh;
+  }
+  /* The top bar becomes "sticky": it scrolls with the page until it reaches 8px from the top, then stays stuck there.
+     transform: none !important cancels both the centring trick and any drag offset. */
+  .topbar,
+  .topbar.draggable {
+    position: sticky;
+    top: 8px;
+    left: auto;
+    transform: none !important;
+    margin: 8px 16px 0;
+    width: auto;
+    padding-left: 16px;
+  }
+  /* Smaller title so it fits. */
+  .topbar h1 {
+    font-size: 15px;
+  }
+  /* Panels stop floating: "static" puts them back in the normal top-to-bottom flow of the page,
+     full width with 16px margins, never moved by dragging. */
+  .floating {
+    position: static;
+    width: auto !important;
+    max-height: none;
+    margin: 16px;
+    transform: none !important;
+  }
+  /* No drag handles on phones. */
+  .handle {
+    display: none;
+  }
+  /* no shrinking on phones: the panels sit below the 3D anyway */
+  .panel.collapsed {
+    width: auto !important;
+  }
+  .panel.collapsed .panel-body {
+    display: block;
+  }
+  /* Extra space at the top of each panel now that the handle is hidden. */
+  .panel {
+    padding-top: 20px;
+  }
+  /* No hint bubble. */
+  .hint {
+    display: none;
+  }
+  /* put the 3D world under the top bar on phones */
+  /* Make <body> a vertical flexbox column... */
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+  /* ...and set the order of its children: top bar, 3D world, explanation, controls. */
+  .topbar { order: 0; }
+  #stage { order: 1; }
+  #info-panel { order: 2; }
+  #controls-panel { order: 3; }
+}
+
+/* ---------- Keyboard focus: a clear ring on whatever you're on ---------- */
+/* :focus-visible matches the element you reached with the Tab key (not mouse clicks), so keyboard users see a thick purple outline. */
+:focus-visible {
+  outline: 3px solid var(--purple-dark);
+  /* Leave a 2px gap between the element and the ring. */
+  outline-offset: 2px;
+}
+/* Round the ring's corners on switch rows. */
+.toggle:focus-visible {
+  border-radius: 12px;
+}
+
+/* ---------- People who turn off motion in their settings ---------- */
+/* Applies only if the visitor's system has "reduce motion" switched on (an accessibility setting). */
+@media (prefers-reduced-motion: reduce) {
+  /* Every element and its ::before / ::after pseudo-elements... */
+  *,
+  *::before,
+  *::after {
+    /* ...finishes every animation and transition almost instantly (0.01ms), so nothing slides or bounces. */
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* The summary uses the welcome look; keep it truly hidden until Finish */
+/* .welcome sets display: grid, which would beat the browser's normal handling of the hidden attribute.
+   This more specific rule (class + attribute) makes sure a hidden welcome layer really disappears. */
+.welcome[hidden] {
+  display: none;
+}
+
+/* The 🔊 mute button in the top bar: a chip you can click. */
+.mute-btn {
+  cursor: pointer;
+  font-family: inherit;
+}
