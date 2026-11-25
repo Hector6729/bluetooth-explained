@@ -1254,3 +1254,13 @@ input[type='range']::-moz-range-thumb {
   cursor: pointer;
   font-family: inherit;
 }
+
+/* The problem line: why this step matters, shown before the answer. */
+.problem {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink-soft, #4a4658);
+}
+.problem::before { content: "😟 "; }
+.answer::before { content: "✅ "; }

@@ -26,7 +26,7 @@
  *  - drag.js   -> makeGlassDraggable() for the panels.
  *  - ui.js     -> paintSlider() to colour the step slider.
  *  - js/steps/*.js -> the six lessons. Each step file exports:
- *       info   : the texts, facts and camera spot for that step
+ *       info   : the texts (title, problem, answer, tryThis) and camera spot for that step
  *       start(world, panel) : builds the step's 3D objects and controls,
  *                and returns an object with update(dt) and stop().
  *    So every step looks the same from here, and main.js doesn't need to
@@ -83,8 +83,7 @@ const stepCount = document.getElementById('step-count'); // "Step 1 of 6"
 const stepTitle = document.getElementById('step-title'); // the step's question
 const stepAnswer = document.getElementById('step-answer'); // the one-line answer
 const stepTry = document.getElementById('step-try'); // the "Try this" instruction
-const stepDetail = document.getElementById('step-detail'); // the "More detail" text
-const facts = document.getElementById('facts'); // the little fact chips
+const stepProblem = document.getElementById('step-problem'); // the problem: why this matters
 const controls = document.getElementById('controls'); // the "Play with it" panel body (not OrbitControls!)
 const backButton = document.getElementById('back');
 const nextButton = document.getElementById('next');
@@ -121,11 +120,7 @@ function showStep(i) {
   stepTitle.textContent = info.title;
   stepAnswer.textContent = info.answer;
   stepTry.textContent = info.tryThis;
-  stepDetail.textContent = info.detail;
-  // info.facts is a list of [label, value] pairs. .map turns each pair into an
-  // HTML string (destructuring the pair into label and value), and .join('')
-  // glues them into one string with nothing between them.
-  facts.innerHTML = info.facts.map(([label, value]) => `<span class="fact">${label}: <strong>${value}</strong></span>`).join('');
+  stepProblem.textContent = info.problem;
 
   // Keep the step slider in sync with the current step.
   stepSlider.max = steps.length - 1;

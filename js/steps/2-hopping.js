@@ -79,18 +79,10 @@ import { addSlider, addToggle, addReadouts, addButton } from '../ui.js';
 
 // Text for the explanation panel + camera spot. main.js reads this.
 export const info = {
-  title: 'Why doesn’t Wi-Fi drown it out?', // an everyday question
-  answer: 'It hops between 79 channels.', // the one-line answer
-  // The challenge for the visitor.
+  title: 'Why doesn’t Wi-Fi block your music?', // an everyday question
+  problem: 'Wi-Fi and microwaves use the same invisible airwaves, like someone shouting over you.', // the problem: why this matters
+  answer: 'It keeps jumping to a quiet lane.', // the one-line answer
   tryThis: 'Turn on Smart hopping.',
-  detail: 'It jumps channel 1,600 times a second to dodge Wi-Fi and microwaves.', // shown under 'More detail'
-  // Fact cards: [name, value]. 1,600 hops/s means each hop lasts 625 microseconds.
-  facts: [
-    ['Channels', '79 × 1 MHz'],
-    ['Hops', '1,600 per second'],
-    ['Band', '2.402–2.480 GHz'],
-  ],
-  // Camera position [x, y, z] and the point it looks at.
   camera: { position: [0, 11, 21], target: [0, 0.5, -1] },
 };
 

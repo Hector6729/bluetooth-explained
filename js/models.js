@@ -255,6 +255,17 @@ export function makeLabel(text, { color = '#1c1a24', size = 1 } = {}) {
   return sprite;
 }
 
+// Change what a label says (and its colour) after it was made, e.g. a live
+// "🎵 Playing" / "🔇 Lost" sign floating over the headphones.
+// We make a fresh label and steal its picture, then throw the rest away.
+export function setLabelText(sprite, text, { color, size = 1 } = {}) {
+  const fresh = makeLabel(text, { color, size });
+  sprite.material.map.dispose(); // free the old picture
+  sprite.material.map = fresh.material.map;
+  sprite.scale.copy(fresh.scale); // new text may be wider or narrower
+  fresh.material.dispose();
+}
+
 // Remove a group from the scene and free its memory.
 // Steps call this in their stop() function for each thing they created.
 export function disposeGroup(group) {

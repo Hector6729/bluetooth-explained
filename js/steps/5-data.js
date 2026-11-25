@@ -70,18 +70,10 @@ import { addSlider, addToggle, addReadouts, addButtonRow, addTextInput } from '.
 
 // `info` is read by main.js to fill the explanation panel and place the camera.
 export const info = {
-  title: 'What actually travels through the air?', // an everyday question
-  answer: 'Your music, as 1s and 0s.', // the one-line answer
-  // What to try first.
+  title: 'What actually flies through the air?', // an everyday question
+  problem: 'Radio can only send simple blips, and noise can scramble them.', // the problem: why this matters
+  answer: 'Your music, as 1s and 0s. Broken parcels are sent again.', // the one-line answer
   tryThis: 'Turn up the noise.',
-  detail: 'Bits travel in packets with a check code. Broken packets get sent again.', // shown under 'More detail'
-  // Fact cards: [label, value].
-  facts: [
-    ['Speed', '1–2 million bits/s'],
-    ['One bit lasts', '1 millionth of a second'],
-    ['Max data per packet', '251 bytes'],
-  ],
-  // Camera position (x, y, z) and the point it looks at.
   camera: { position: [0, 4.5, 15.5], target: [0, 1.7, 0] },
 };
 

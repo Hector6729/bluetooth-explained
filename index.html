@@ -36,8 +36,8 @@
   HOW THIS FILE CONNECTS TO THE OTHER FILES
   * style.css (linked in <head>) styles every class and id used here.
   * js/main.js (loaded at the very bottom) is the "boss" script. It:
-      fills #step-title, #step-answer, #step-try,
-      #step-detail, #facts and #step-count with each step's words;
+      fills #step-title, #step-problem, #step-answer, #step-try
+      and #step-count with each step's words;
       wires up #back, #next, #step-slider, #start, #summary-close,
       #summary-again; toggles the classes .collapsed (shrink a panel),
       .panels-hidden on <body> (H key), .gone (fade out welcome or
@@ -142,19 +142,11 @@
     <div class="panel-body" id="info-body">
       <!-- Step title (a level-2 heading), filled in by main.js. -->
       <h2 id="step-title"></h2>
-      <!-- The one-line short answer to the step's question, filled in by main.js. -->
+      <!-- The PROBLEM first (why this matters), then the answer. Filled in by main.js. -->
+      <p id="step-problem" class="problem"></p>
       <p id="step-answer" class="answer"></p>
       <!-- A "Try this" suggestion box. The <span> inside gets the step's suggestion text. -->
       <p class="try"><b>Try this:</b> <span id="step-try"></span></p>
-      <!-- <details> is a built-in fold-out box: closed by default, click the <summary> line to open it. No JS needed. -->
-      <details class="more">
-        <!-- The always-visible clickable line of the fold-out. -->
-        <summary>More detail</summary>
-        <!-- Extra detail text, filled in by main.js. -->
-        <p id="step-detail"></p>
-        <!-- main.js puts small "label: value" fact pills in here. -->
-        <div class="facts" id="facts"></div>
-      </details>
       <!-- <nav> = navigation area. Holds the Back / Next buttons. -->
       <nav class="buttons">
         <!-- Go to the previous step. main.js disables it on step 1. -->
@@ -199,7 +191,7 @@
       <!-- Welcome title. -->
       <h1>How Bluetooth Works</h1>
       <!-- Short intro sentence. -->
-      <p>Phone to headphones, through thin air. 🎵 Sound on!</p>
+      <p>How music gets from your phone to your headphones, in 2 minutes. 🎵 Sound on!</p>
       <!-- Wrapper that stacks the buttons. -->
       <div class="welcome-buttons">
         <!-- Start button: main.js listens for clicks on #start to hide the welcome screen. -->
@@ -218,12 +210,12 @@
       <!-- Intro line. -->
       <!-- <ol> = ordered (numbered) list: one line per step. <b> makes the key words bold. -->
       <ol class="recap-list">
-        <li><b>Radio waves</b> carry it.</li>
-        <li>It <b>hops channels</b> to dodge noise.</li>
-        <li>Gadgets <b>shout “I’m here!”</b></li>
-        <li><b>Pairing</b> makes a secret key.</li>
-        <li>Data flies as <b>1s and 0s</b>.</li>
-        <li>A <b>music backup</b> stops stutters.</li>
+        <li>Music flies on <b>invisible radio waves</b>.</li>
+        <li>It <b>jumps lanes</b> to dodge Wi-Fi.</li>
+        <li>Headphones <b>shout “I’m here!”</b></li>
+        <li><b>Pairing</b> makes a secret code.</li>
+        <li>Music travels as <b>1s and 0s</b>.</li>
+        <li>A little <b>saved music</b> stops stutters.</li>
       </ol>
       <!-- Button stack. -->
       <div class="welcome-buttons">
